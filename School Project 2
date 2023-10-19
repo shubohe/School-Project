@@ -1,0 +1,458 @@
+# R.studio school project
+
+---
+title: "Group Project 9660"
+author: "shubo"
+date: "2023-04-22"
+output: pdf_document
+---
+
+# Load Data and prepare packages
+```{r Packages, eval=FALSE, include=FALSE}
+ install.packages("ggplot2")
+ install.packages("dplyr")
+ install.packages("stargazer")
+ library(stargazer)
+ library(ggplot2)
+ library(dplyr)
+ install.packages("rmarkdown")
+ library(rmarkdown)
+ install.packages(stargazer)
+ library(stargazer)
+ install.packages("car")
+ library(car)
+ library(class)
+ install.packages("ggplot2")
+ library(ggplot2)
+ install.packages("tinytex")
+ install.packages("stats")
+ library(boot)
+ install.packages("GGally")
+ library(GGally)
+ install.packages("tree")
+ library(tree)
+ library(ISLR)
+ install.packages(c("gbm","randomForest"))
+ library(randomForest)
+ library(MASS)
+```
+
+# Original data preview and Data summary statistics
+```{r Original Data}
+Original_Video.Game<-read.csv("Video_Games_Sales_as_at_22_Dec_2016.csv")
+summary(Original_Video.Game)
+dim(Original_Video.Game)
+# View(Original_Video.Game)
+sapply(Original_Video.Game,class)
+str(Original_Video.Game)
+attach(Original_Video.Game)
+
+```
+
+# Stargazer original data
+```{r Remove Na and Blank data}
+# Remove missing values
+Video.Game <- na.omit(Original_Video.Game)
+summary(Video.Game)
+dim(Video.Game)
+# View(Video.Game)
+sapply(Video.Game,class)
+str(Video.Game)
+attach(Video.Game)
+
+# Convert the categorical variables to factors, since Sales are numerical, but other variables need to convert to factor and numerical in order to print on the stargazer table.
+Video.Game$Name<-factor(Video.Game$Name)
+Video.Game$Platform <- factor(Video.Game$Platform)
+Video.Game$Year_of_Release<-factor(Video.Game$Year_of_Release)
+Video.Game$Genre <- factor(Video.Game$Genre)
+Video.Game$Publisher <- factor(Video.Game$Publisher)
+Video.Game$Critic_Score<-as.numeric(Video.Game$Critic_Score)
+Video.Game$Critic_Count<-as.numeric(Video.Game$Critic_Count)
+Video.Game$User_Score<-as.numeric(Video.Game$User_Score)
+Video.Game$User_Count<-as.numeric(Video.Game$User_Count) 
+Video.Game$Developer <- factor(Video.Game$Developer)
+Video.Game$Rating <- factor(Video.Game$Rating)
+str(Video.Game)
+
+# Use stargazer to output summary statistics for all variables in the dataset
+library(stargazer)
+stargazer(Video.Game, title = "Summary Statistics", type = "text", summary.stat = c("mean", "sd", "min", "max"))
+
+```
+
+
+# OLS Model for Original Data (Do not run 2 codes below, it will run 5-10 mins long.)
+```{r Orginal Model, echo=TRUE, eval=FALSE}
+Original_model<-lm(Global_Sales~ Name+Year_of_Release+Genre+Publisher+NA_Sales+EU_Sales+JP_Sales+Other_Sales+Critic_Score+Critic_Count+User_Score+User_Count+Developer+Rating,data=Original_Video.Game)
+summary(Original_model)
+
+Video_model<-lm(Global_Sales~ Name+Year_of_Release+Genre+Publisher+NA_Sales+EU_Sales+JP_Sales+Other_Sales+Critic_Score+Critic_Count+User_Score+User_Count+Developer+Rating,data=Video.Game)
+summary(Video_model)
+```
+
+## stargazer for Original Model (bad)
+```{r echo=TRUE, eval=FALSE}
+stargazer(Original_model, title = "Regression Results",
+          type = "text", summary = TRUE, star.cutoffs = c(0.05, 0.01, 0.001))
+```
+
+*  Since our original data VG.Game has huge data set, so when we make linear model with all variables, R Studio will spend long time to load and can't print all the results.
+*   Although we have some significant output with p-value less than 0.001, however, the summary output shows many data that we can't analysis directly, since each name of video game count as one character, and we have 16719 columns, so it will output same amount of results just for Name section. In that way we decide use 2 step to continue work on the data. *1 Fix data type since somedata set as character with numerical data based on the output of summary(VG.Game)* 2 Forward selection that pick what categories that we believe they are useful to the growth of Global_Sales.
+
+# Filter the Data, Forward Method
+```{r Filter table}
+data <- read.csv("Video_Games_Sales_as_at_22_Dec_2016_upload.csv")
+data <- data[rowSums(is.na(data) | data == "") != ncol(data),]
+write.csv(data, "Video_Games_Sales_as_at_22_Dec_2016_upload.csv", row.names = FALSE)
+VG.Sample <- read.csv("Video_Games_Sales_as_at_22_Dec_2016_upload.csv")
+VG.Sample <- na.omit(VG.Sample)
+# convert 
+VG.Sample$Name<-factor(VG.Sample$Name)
+VG.Sample$Platform <- factor(VG.Sample$Platform)
+VG.Sample$Year_of_Release<-factor(VG.Sample$Year_of_Release)
+VG.Sample$Genre <- factor(VG.Sample$Genre)
+VG.Sample$Publisher <- factor(VG.Sample$Publisher)
+VG.Sample$Critic_Score<-as.numeric(VG.Sample$Critic_Score)
+VG.Sample$Critic_Count<-as.numeric(VG.Sample$Critic_Count)
+VG.Sample$User_Score<-as.numeric(VG.Sample$User_Score)
+VG.Sample$User_Count<-as.numeric(VG.Sample$User_Count)
+VG.Sample$Developer <- factor(VG.Sample$Developer)
+VG.Sample$Rating <- factor(VG.Sample$Rating)
+str(VG.Sample)
+
+VG_Summary<-summary(VG.Sample)
+str(VG.Sample)
+dim(VG.Sample)
+# View(VG.Sample)
+attach(VG.Sample)
+
+all_correlations(VG.Sample)
+stargazer(VG.Sample,title=VG_Summary,type="text")
+stargazer(VG.Sample[1:10,],  type="text")
+```
+
+*  we remove data without any input/blank/NA that make sure the data we use are effective.
+
+## Linear Model for Filtered Data
+```{r Linear Models}
+# Hypothesis 
+linear_model <- lm(Global_Sales ~ User_Score + User_Count + Critic_Score + Critic_Count + Genre + Platform, data = VG.Sample)
+summary(linear_model)
+plot(linear_model,col="purple") 
+stargazer(linear_model, title = "Results", align = TRUE, type = "text")
+
+log10.linear_model<-lm(log10(Global_Sales) ~ User_Score + User_Count + Critic_Score + Critic_Count + Genre + Platform, data = VG.Sample)
+summary(log10.linear_model)
+plot(log10.linear_model,col="purple")
+
+library(stargazer)
+library(car)
+vif(linear_model)
+# stargazer(linear_model, title = "Results", align = TRUE, type = "text")
+```
+*   First, basic our hypothesis about our research question: what variable(s) are helping video game global sales increase, that we want to make linear model seperately instead of combine all into one, and find out the effect one to use in furthur analysis.
+
+```{r display forward models, eval=FALSE, include=FALSE}
+# Regression forward selection method (we should use backward selection from early)
+
+linear_model1<-lm(Global_Sales~User_Score,data=VG.Sample)
+summary(linear_model1)
+linear_model2<-lm(Global_Sales~User_Score+User_Count,VG.Sample)
+summary(linear_model2)
+linear_model3<-lm(Global_Sales~User_Score+User_Count+Critic_Score,VG.Sample)
+summary(linear_model3)
+linear_model4<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count,VG.Sample)
+summary(linear_model4) # final linear model
+vif(linear_model4)
+
+
+# Categorical 
+
+linear_model5<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre,VG.Sample)
+summary(linear_model5)
+linear_model6<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre+Platform,VG.Sample)
+summary(linear_model6)
+vif(linear_model6)
+stargazer(linear_model4, title = "Linear Model Results", align = TRUE, type = "text")
+
+
+# Bad variables and output get rid of 
+linear_model7<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre+Platform+Year_of_Release,VG.Sample)
+summary(linear_model7)
+linear_model8<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre+Platform+Year_of_Release+Publisher,VG.Sample)
+summary(linear_model8)
+linear_model9<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre+Platform+Year_of_Release+Developer,VG.Sample)
+summary(linear_model9)
+linear_model10<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre+Platform+Year_of_Release+Name,VG.Sample)
+summary(linear_model10)
+linear_model11<-lm(Global_Sales~User_Score+User_Count+Critic_Score+Critic_Count+Genre+Platform+Year_of_Release+Rating,VG.Sample)
+summary(linear_model11)
+levels(VG.Sample$Genre)
+
+# plot of each model
+P1<-plot(linear_model1,col="red")
+P2<-plot(linear_model2,col="blue")
+P3<-plot(linear_model3,col="green")
+P4<-plot(linear_model4,col="pink")
+P5<-plot(linear_model5,col="orange")
+P6<-plot(linear_model6,col="black") 
+
+linear1<-lm(GLobal_Sales~Genre,VG.Sample)
+
+```
+
+## Part 1 plot
+```{r Vistually each variable}
+pairs(~Global_Sales+User_Count+User_Score+Critic_Count+Critic_Score,VG.Sample)
+
+hist(User_Count)
+hist(User_Score)
+hist(Critic_Count)
+hist(Critic_Score)
+hist(Global_Sales)
+
+plot_UC<-plot(User_Count,Global_Sales)
+plot_US<-plot(User_Score,Global_Sales)
+plot_CC<-plot(Critic_Count,Global_Sales)
+plot_CS<-plot(Critic_Score,Global_Sales)
+plot_G<-boxplot(Global_Sales~Genre,data=VG.Sample)
+plot_P<-boxplot(Global_Sales~Platform,data=VG.Sample)
+
+library(GGally)
+ggpairs(VG.Sample[, c("Global_Sales", "User_Score", "User_Count", "Critic_Score", "Critic_Count")])
+
+```
+
+# Cross-Validation
+```{r Cross Validation}
+# Split the data into training and testing datasets
+set.seed(9750)
+train <- sample(1:nrow(VG.Sample), nrow(VG.Sample)/2) 
+test <- VG.Sample[-train,]
+
+trainData <- VG.Sample[train, ]
+testData <- VG.Sample[-train, ]
+
+lm.fit=lm(Global_Sales~User_Count+User_Score+Critic_Count+Critic_Score+Genre+Platform,data=trainData)
+coef(lm.fit)
+summary(lm.fit)
+lm.fit1=lm(Global_Sales~User_Count+User_Score+Critic_Count+Critic_Score+Platform,data=trainData)
+coef(lm.fit1)
+summary(lm.fit1)
+lm.fit2=lm(Global_Sales~User_Count+User_Score+Critic_Count+Critic_Score,data=trainData)
+coef(lm.fit2)
+summary(lm.fit2)
+lm.fit3=lm(Global_Sales~User_Count+Critic_Count+Critic_Score,data=trainData)
+coef(lm.fit3)
+summary(lm.fit3)
+lm.predict<-predict(lm.fit3,newdata=testData) # predict base on trainData
+head(lm.predict,5)
+MSE<-mean((testData$Global_Sales-lm.predict)^2)
+MSE
+summary(lm.fit3)$r.squared
+plot(lm.fit3)
+
+stargazer(lm.fit3, title = "Muti-linear Model Result", type = "text")
+
+# vitualization with log 10
+log10.fit3=lm(log10(Global_Sales)~User_Count+Critic_Count+Critic_Score,data=trainData)
+summary(log10.fit3)
+plot(log10.fit3)
+```
+
+
+## remove outliers (don't know right or wrong)
+```{r Remove outliers}
+stud_resids<- rstudent(lm.fit3)
+outliers <- which(abs(stud_resids) > 3)
+lm.fit4=lm(Global_Sales~User_Count+Critic_Count+Critic_Score,data=trainData[-outliers,])
+plot(lm.fit4)
+
+lm.predict2<-predict(lm.fit4,newdata=testData) # predict base on trainData
+head(lm.predict2,5)
+
+MSE2<-mean((testData$Global_Sales-lm.predict2)^2)
+MSE2
+
+```
+
+## GLM Logistic model
+```{r Logistic models}
+Mid.Sale <- median(VG.Sample$Global_Sales)
+Global_Sales2 <- ifelse(VG.Sample$Global_Sales >= Mid.Sale, "1", "0")
+Global_Sales2<-as.factor(Global_Sales2)
+glm.model <- glm(Global_Sales2~User_Score+User_Count+Critic_Score+Critic_Count+Genre + Platform, data = VG.Sample, family = binomial)
+coef(glm.model)
+summary(glm.model)
+glm.model1<-glm(Global_Sales2~User_Score+User_Count+Critic_Score+Critic_Count+Genre, data = VG.Sample, family = binomial)
+coef(glm.model1)
+summary(glm.model1)
+glm.model2<-glm(Global_Sales2~User_Count+Critic_Score+Critic_Count+Genre, data = VG.Sample, family = binomial)
+coef(glm.model2)
+summary(glm.model2)
+glm.model3<-glm(Global_Sales2~User_Score+Critic_Score+Critic_Count, data = VG.Sample, family = binomial)
+coef(glm.model3)
+plot(glm.model3)
+summary(glm.model3)
+stargazer(glm.model3, title = "Logistic Model Result", type = "text")
+
+```
+
+## Accurate rate
+```{r Accurate rate}
+glm.probs=predict(glm.model3,type="response")
+head(glm.probs,5)
+
+Global_Sales1<-ifelse(VG.Sample$Global_Sales>=(median(VG.Sample$Global_Sales)),"High","Low")
+Global_Sales1<-as.factor(Global_Sales1)
+contrasts(Global_Sales1)
+glm.pred1=rep("Low",6182)
+glm.pred1[glm.probs>=Mid.Sale]="High"
+table(glm.pred1,Global_Sales1)
+mean(glm.pred1==Global_Sales1)
+mean(glm.pred1!=Global_Sales1)
+
+
+# Accuracy rate= (2803+757)/6182=0.5758654
+# Precision rate= 2803/(2803+2324)=0.5467135
+# Recall rate= 2803/(2803+298)=0.903902
+```
+
+# Decision tree
+```{r Classification tree}
+# Classification tree method
+library(tree)
+set.seed(9750)
+median(Global_Sales)
+SalesLevel = as.factor(ifelse(Global_Sales <= .3, "Low", "High"))
+VG.Sample = data.frame(VG.Sample, SalesLevel) 
+nrow(VG.Sample)
+Class.Tree.data = VG.Sample[,c("Global_Sales","Critic_Score","Critic_Count","User_Score","User_Count","SalesLevel")]
+str(Class.Tree.data)
+Class.Tree = tree(SalesLevel ~ . - Global_Sales, Class.Tree.data)
+summary(Class.Tree)
+plot(Class.Tree); text(Class.Tree, pretty = 0)
+Class.train = sample(1:nrow(Class.Tree.data), nrow(Class.Tree.data)/2)
+Class.test = Class.Tree.data[-Class.train,]
+SalesLevel.test = SalesLevel[-Class.train]
+Tree.Class = tree(SalesLevel ~ . - Global_Sales, Class.Tree.data, subset = Class.train)
+Tree.pred = predict(Tree.Class, Class.test, type = "class")
+table(Tree.pred, SalesLevel.test)
+mean(Tree.pred == SalesLevel.test)
+
+
+#prune the tree
+set.seed(9750)
+cv.Class=cv.tree(Class.Tree,FUN=prune.misclass)
+names(cv.Class)
+cv.Class
+summary(Tree.Class)
+plot(cv.Class$size,cv.Class$dev,type="b")
+prune.Class=prune.misclass(Tree.Class,best=4)
+plot(prune.Class);text(prune.Class,pretty=0)
+Tree.pred=predict(prune.Class,Class.test,type="class")
+table(Tree.pred, SalesLevel.test)
+mean(Tree.pred == SalesLevel.test)
+```
+
+# Regression Trees
+```{r Regression tree}
+# Regression tree method
+set.seed(9750)
+Reg.Tree.data=VG.Sample[,c("Global_Sales","Critic_Score","Critic_Count","User_Score","User_Count")]
+Reg.train=sample(1:nrow(Reg.Tree.data),nrow(Reg.Tree.data)/2)
+Reg.Tree=tree(Global_Sales~.,Reg.Tree.data,subset=Reg.train)
+summary(Reg.Tree)
+plot(Reg.Tree); text(Reg.Tree,pretty=0)
+Reg.Tree
+
+cv.Reg=cv.tree(Reg.Tree)
+cv.Reg
+plot(cv.Reg$size,cv.Reg$dev,type="b")
+Reg.yhat=predict(Reg.Tree,newdata=Reg.Tree.data[-Reg.train,])
+Reg.test=Reg.Tree.data[-Reg.train,"Global_Sales"]
+plot(Reg.yhat,Reg.test);abline(0,1)
+mean((Reg.yhat-Reg.test)^2)
+prune.Reg=prune.tree(Reg.Tree,best=6)
+plot(prune.Reg);text(prune.Reg,pretty=0)
+
+```
+ 
+# Bagging 
+```{r Bagging}
+# Bagging method
+library(randomForest)
+Bag.Tree.data=VG.Sample[,c("Global_Sales","Critic_Score","Critic_Count","User_Score","User_Count")]
+Bag.train=sample(1:nrow(Bag.Tree.data),nrow(Bag.Tree.data)/2)
+Bag.test=Bag.Tree.data[-Bag.train,"Global_Sales"]
+set.seed(9750)
+str(Bag.Tree.data)
+ncol(Bag.Tree.data)
+Bag.Tree=randomForest(Global_Sales~.,data=Bag.Tree.data,subset=Bag.train,mtry=4,importance=TRUE)
+Bag.Tree
+importance(Bag.Tree)
+varImpPlot(Bag.Tree)
+Bag.yhat=predict(Bag.Tree,newdata=Bag.Tree.data[-Bag.train,])
+plot(Bag.yhat,Bag.test);abline(0,1)
+mean((Bag.yhat-Bag.test)^2)
+
+Bag.Tree.25=randomForest(Global_Sales~.,data=Bag.Tree.data,subset=Bag.train,mtry=4,ntree=25)
+Bag.yhat.25=predict(Bag.Tree.25,newdata=Bag.Tree.data[-Bag.train,])
+mean((Bag.yhat.25-Bag.test)^2)
+
+Bag.Tree.100=randomForest(Global_Sales~.,data=Bag.Tree.data,subset=Bag.train,mtry=4,ntree=100)
+Bag.yhat.100=predict(Bag.Tree.100,newdata=Bag.Tree.data[-Bag.train,])
+mean((Bag.yhat.100-Bag.test)^2)
+
+
+Bag.Tree.1000=randomForest(Global_Sales~.,data=Bag.Tree.data,subset=Bag.train,mtry=4,ntree=1000)
+Bag.yhat.1000=predict(Bag.Tree.1000,newdata=Bag.Tree.data[-Bag.train,])
+mean((Bag.yhat.1000-Bag.test)^2)
+
+```
+
+# Random Forest
+```{r Random Forest}
+# Random forest method
+set.seed(9750)
+Random.Tree=randomForest(Global_Sales~.,data=Bag.Tree.data,subset=Bag.train,mtry=4/3,importance=TRUE)
+Random.yhat=predict(Random.Tree,newdata=Bag.Tree.data[-Bag.train,]) # using same dataset as Bagging method data
+mean((Random.yhat-Bag.test)^2)
+importance(Random.Tree)
+varImpPlot(Random.Tree)
+Random.Tree
+```
+
+# Boosting
+```{r}
+library(gbm)
+set.seed(9750)
+Boost.Tree=gbm(Global_Sales~.,data=Bag.Tree.data[Bag.train,],distribution="gaussian",n.trees=500,interaction.depth=2)
+summary(Boost.Tree)
+Boost.Tree
+
+plot(Boost.Tree,i="User_Score")
+plot(Boost.Tree,i="User_Count")
+plot(Boost.Tree,i="Critic_Score")
+plot(Boost.Tree,i="Critic_Count")
+
+Boost.yhat=predict(Boost.Tree,newdata=Bag.Tree.data[-Bag.train,],n.trees=500)
+mean((Boost.yhat=Bag.test)^2)
+
+Boost.Tree.F=gbm(Global_Sales~.,data=Bag.Tree.data[Bag.train,],distribution="gaussian",n.trees=500,interaction.depth=3,shrinkage=0.5,verbose=F)
+Boost.yhat.F=predict(Boost.Tree.F,newdata=Bag.Tree.data[-Bag.train,],n.trees=500)
+mean((Boost.yhat.F=Bag.test)^2)
+
+Boost.Tree.T=gbm(Global_Sales~.,data=Bag.Tree.data[Bag.train,],distribution="gaussian",n.trees=500,interaction.depth=2,shrinkage=0.2,verbose=T)
+Boost.yhat.T=predict(Boost.Tree.T,newdata=Bag.Tree.data[-Bag.train,],n.trees=500)
+mean((Boost.yhat.T=Bag.test)^2)
+
+summary(Boost.Tree.T) 
+
+Boost.Tree.250=gbm(Global_Sales~.,data=Bag.Tree.data[Bag.train,],distribution="gaussian",n.trees=250,interaction.depth=2,shrinkage=0.2,verbose=F)
+Boost.yhat.250=predict(Boost.Tree.250,newdata=Bag.Tree.data[-Bag.train,],n.trees=250)
+mean((Boost.yhat.250=Bag.test)^2) # maximum is 500, below 500 showing same result, 1000 is not valid
+
+```
+
+
